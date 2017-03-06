@@ -20,34 +20,34 @@ RCT_EXPORT_METHOD(signInAnonymously:
                   (RCTResponseSenderBlock) callback)
 {
     @try {
-    [[FIRAuth auth] signInAnonymouslyWithCompletion
-     :^(FIRUser *user, NSError *error) {
-         if (!user) {
-             NSDictionary *evt = @{
-                                   @"eventName": AUTH_ANONYMOUS_ERROR_EVENT,
-                                   @"errorMessage": [error localizedDescription]
-                                   };
-
-
-             [self sendJSEvent:AUTH_CHANGED_EVENT
-                  props: evt];
-
-             callback(@[evt]);
-         } else {
-             NSDictionary *userProps = [self userPropsFromFIRUser:user];
-             NSDictionary *responseProps = @{
-                                             @"authenticated": @((BOOL) true),
-                                             @"user": userProps
-                                             };
-             callback(@[[NSNull null], responseProps]);
-        }
-     }];
+        [[FIRAuth auth] signInAnonymouslyWithCompletion
+         :^(FIRUser *user, NSError *error) {
+             if (!user) {
+                 NSDictionary *evt = @{
+                                       @"eventName": AUTH_ANONYMOUS_ERROR_EVENT,
+                                       @"errorMessage": [error localizedDescription]
+                                       };
+                 
+                 
+                 [self sendJSEvent:AUTH_CHANGED_EVENT
+                             props: evt];
+                 
+                 callback(@[evt]);
+             } else {
+                 NSDictionary *userProps = [self userPropsFromFIRUser:user];
+                 NSDictionary *responseProps = @{
+                                                 @"authenticated": @((BOOL) true),
+                                                 @"user": userProps
+                                                 };
+                 callback(@[[NSNull null], responseProps]);
+             }
+         }];
     } @catch(NSException *ex) {
         NSDictionary *eventError = @{
                                      @"eventName": AUTH_ANONYMOUS_ERROR_EVENT,
                                      @"errorMessage": ex.reason
                                      };
-
+        
         [self sendJSEvent:AUTH_ERROR_EVENT
                     props:eventError];
         NSLog(@"An exception occurred: %@", ex);
@@ -62,7 +62,7 @@ RCT_EXPORT_METHOD(signInWithCustomToken:
     [[FIRAuth auth]
      signInWithCustomToken:customToken
      completion:^(FIRUser *user, NSError *error) {
-
+         
          if (user != nil) {
              NSDictionary *userProps = [self userPropsFromFIRUser:user];
              NSDictionary *responseProps = @{
@@ -73,8 +73,8 @@ RCT_EXPORT_METHOD(signInWithCustomToken:
          } else {
              NSDictionary *err =
              [FirestackErrors handleFirebaseError:AUTH_ERROR_EVENT
-                                 error:error
-                              withUser:user];
+                                            error:error
+                                         withUser:user];
              callback(@[err]);
          }
      }];
@@ -95,7 +95,7 @@ RCT_EXPORT_METHOD(signInWithProvider:
                               };
         return callback(@[err]);
     }
-
+    
     @try {
         [[FIRAuth auth] signInWithCredential:credential
                                   completion:^(FIRUser *user, NSError *error) {
@@ -148,7 +148,7 @@ RCT_EXPORT_METHOD(listenForAuth)
     self->authListenerHandle =
     [[FIRAuth auth] addAuthStateDidChangeListener:^(FIRAuth *_Nonnull auth,
                                                     FIRUser *_Nullable user) {
-
+        
         if (user != nil) {
             // User is signed in.
             [self userPropsFromFIRUserWithToken:user
@@ -198,13 +198,13 @@ RCT_EXPORT_METHOD(unlistenForAuth:(RCTResponseSenderBlock)callback)
 RCT_EXPORT_METHOD(getCurrentUser:(RCTResponseSenderBlock)callback)
 {
     FIRUser *user = [FIRAuth auth].currentUser;
-
+    
     if (user != nil) {
         NSDictionary *userProps = [self userPropsFromFIRUser:user];
         NSDictionary *responseProps = @{
-                                            @"authenticated": @((BOOL) true),
-                                            @"user": userProps
-                                            };
+                                        @"authenticated": @((BOOL) true),
+                                        @"user": userProps
+                                        };
         callback(@[[NSNull null], responseProps]);
     } else {
         // No user is signed in.
@@ -256,25 +256,46 @@ RCT_EXPORT_METHOD(signInWithEmail:(NSString *)email
                              } else {
                                  NSDictionary *err =
                                  [FirestackErrors handleFirebaseError:@"signinError"
-                                                     error:error
-                                                  withUser:user];
+                                                                error:error
+                                                             withUser:user];
                                  callback(@[err]);
                              }
                          }];
+}
+
+RCT_EXPORT_METHOD(sendEmailVerification:(RCTResponseSenderBlock) callback)
+{
+    
+    FIRUser *user = [FIRAuth auth].currentUser;
+    
+    [user sendEmailVerificationWithCompletion:^(NSError *_Nullable error) {
+        if (error) {
+            // An error happened.
+            NSDictionary *err =
+            [FirestackErrors handleFirebaseError:@"updateUserPasswordError"
+                                           error:error
+                                        withUser:user];
+            callback(@[err]);
+        } else {
+            // Email verification sent.
+            NSDictionary *userProps = [self userPropsFromFIRUser:user];
+            callback(@[[NSNull null], userProps]);
+        }
+    }];
 }
 
 RCT_EXPORT_METHOD(updateUserEmail:(NSString *)email
                   callback:(RCTResponseSenderBlock) callback)
 {
     FIRUser *user = [FIRAuth auth].currentUser;
-
+    
     [user updateEmail:email completion:^(NSError *_Nullable error) {
         if (error) {
             // An error happened.
             NSDictionary *err =
             [FirestackErrors handleFirebaseError:@"updateEmailError"
-                                error:error
-                             withUser:user];
+                                           error:error
+                                        withUser:user];
             callback(@[err]);
         } else {
             // Email updated.
@@ -284,32 +305,12 @@ RCT_EXPORT_METHOD(updateUserEmail:(NSString *)email
     }];
 }
 
-RCT_EXPORT_METHOD(updateUserPassword:(NSString *)newPassword
-                  callback:(RCTResponseSenderBlock) callback)
-{
 
-    FIRUser *user = [FIRAuth auth].currentUser;
-
-    [user updatePassword:newPassword completion:^(NSError *_Nullable error) {
-        if (error) {
-            // An error happened.
-            NSDictionary *err =
-            [FirestackErrors handleFirebaseError:@"updateUserPasswordError"
-                                error:error
-                             withUser:user];
-            callback(@[err]);
-        } else {
-            // Email updated.
-            NSDictionary *userProps = [self userPropsFromFIRUser:user];
-            callback(@[[NSNull null], userProps]);
-        }
-    }];
-}
 
 RCT_EXPORT_METHOD(sendPasswordResetWithEmail:(NSString *)email
                   callback:(RCTResponseSenderBlock) callback)
 {
-
+    
     [[FIRAuth auth] sendPasswordResetWithEmail:email
                                     completion:^(NSError *_Nullable error) {
                                         if (error) {
@@ -331,13 +332,13 @@ RCT_EXPORT_METHOD(sendPasswordResetWithEmail:(NSString *)email
 RCT_EXPORT_METHOD(deleteUser:(RCTResponseSenderBlock) callback)
 {
     FIRUser *user = [FIRAuth auth].currentUser;
-
+    
     [user deleteWithCompletion:^(NSError *_Nullable error) {
         if (error) {
             NSDictionary *err =
             [FirestackErrors handleFirebaseError:@"deleteUserError"
-                                error:error
-                             withUser:user];
+                                           error:error
+                                        withUser:user];
             callback(@[err]);
         } else {
             callback(@[[NSNull null], @{@"result": @(true)}]);
@@ -348,13 +349,13 @@ RCT_EXPORT_METHOD(deleteUser:(RCTResponseSenderBlock) callback)
 RCT_EXPORT_METHOD(getToken:(RCTResponseSenderBlock) callback)
 {
     FIRUser *user = [FIRAuth auth].currentUser;
-
+    
     [user getTokenWithCompletion:^(NSString *token, NSError *_Nullable error) {
         if (error) {
             NSDictionary *err =
             [FirestackErrors handleFirebaseError:@"getTokenError"
-                                error:error
-                             withUser:user];
+                                           error:error
+                                        withUser:user];
             callback(@[err]);
         } else {
             NSDictionary *userProps = [self userPropsFromFIRUser:user];
@@ -366,13 +367,13 @@ RCT_EXPORT_METHOD(getToken:(RCTResponseSenderBlock) callback)
 RCT_EXPORT_METHOD(getTokenWithCompletion:(RCTResponseSenderBlock) callback)
 {
     FIRUser *user = [FIRAuth auth].currentUser;
-
+    
     [user getTokenWithCompletion:^(NSString *token , NSError *_Nullable error) {
         if (error) {
             NSDictionary *err =
             [FirestackErrors handleFirebaseError:@"getTokenWithCompletion"
-                                error:error
-                             withUser:user];
+                                           error:error
+                                        withUser:user];
             callback(@[err]);
         } else {
             NSDictionary *userProps = [self userPropsFromFIRUser:user];
@@ -396,15 +397,15 @@ RCT_EXPORT_METHOD(reauthenticateWithCredentialForProvider:
                               };
         return callback(@[err]);
     }
-
+    
     FIRUser *user = [FIRAuth auth].currentUser;
-
+    
     [user reauthenticateWithCredential:credential completion:^(NSError *_Nullable error) {
         if (error) {
             NSDictionary *err =
             [FirestackErrors handleFirebaseError:@"reauthenticateWithCredentialForProviderError"
-                                error:error
-                             withUser:user];
+                                           error:error
+                                        withUser:user];
             callback(@[err]);
         } else {
             callback(@[[NSNull null], @{@"result": @(true)}]);
@@ -418,7 +419,7 @@ RCT_EXPORT_METHOD(updateUserProfile:(NSDictionary *)userProps
 {
     FIRUser *user = [FIRAuth auth].currentUser;
     FIRUserProfileChangeRequest *changeRequest = [user profileChangeRequest];
-
+    
     NSMutableArray *allKeys = [[userProps allKeys] mutableCopy];
     for (NSString *key in allKeys) {
         // i.e. changeRequest.displayName = userProps[displayName];
@@ -439,8 +440,8 @@ RCT_EXPORT_METHOD(updateUserProfile:(NSDictionary *)userProps
                     // An error happened.
                     NSDictionary *err =
                     [FirestackErrors handleFirebaseError:@"updateEmailError"
-                                        error:error
-                                     withUser:user];
+                                                   error:error
+                                                withUser:user];
                     callback(@[err]);
                 } else {
                     // Profile updated.
@@ -463,12 +464,12 @@ RCT_EXPORT_METHOD(updateUserProfile:(NSDictionary *)userProps
                                         @"refreshToken": user.refreshToken,
                                         @"providerID": user.providerID
                                         } mutableCopy];
-
+    
     if ([user valueForKey:@"photoURL"] != nil) {
         [userProps setValue: [NSString stringWithFormat:@"%@", user.photoURL]
                      forKey:@"photoURL"];
     }
-
+    
     return userProps;
 }
 
@@ -480,7 +481,7 @@ RCT_EXPORT_METHOD(updateUserProfile:(NSDictionary *)userProps
         if (error != nil) {
             return callback(nil, error);
         }
-
+        
         [userProps setValue:token forKey:@"idToken"];
         callback(userProps, nil);
     }];
@@ -516,10 +517,10 @@ RCT_EXPORT_METHOD(updateUserProfile:(NSDictionary *)userProps
                props:(NSDictionary *)props
 {
     @try {
-      if (self->listening) {
-        [self sendEventWithName:title
-                           body:props];
-      }
+        if (self->listening) {
+            [self sendEventWithName:title
+                               body:props];
+        }
     }
     @catch (NSException *err) {
         NSLog(@"An error occurred in sendJSEvent: %@", [err debugDescription]);
